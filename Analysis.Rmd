@@ -1,3 +1,5 @@
+# Analysis Journal
+
 To measure the impact of the coronavirus on Nebraska, we looked for automated data collectors. One such automated data collector is the automated traffic counting stations that the data Department of Transportation uses. This is the analysis of that data. 
 
 See the DataPrep notebook in the raw-data folder for details about how we processed the data. 

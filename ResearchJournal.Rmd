@@ -1,0 +1,9 @@
+# Research journal
+
+Going forward, we will require research journals that will include your notes on how you found what you found, including links and other notes. 
+
+This notebook is being created after the fact.
+
+I knew about ADT counts from previous reporting, so I went looking for them on [the Nebraska DOT website](https://dot.nebraska.gov/). Through a press release, we found previous data, and later got the data we used [here](https://dot.nebraska.gov/media/113515/4-22-2020-traffic-count-dashboard.pdf). In that same press release is the announcement of a [data dashboard](https://gis.ne.gov/portal/apps/opsdashboard/index.html#/4473552a18f34645ad0dede3ae1105ce), which is useful for broad information but little else. 
+
+With the PDF url from the press release, we then set about parsing the data into useful data. See the Data Journal in the raw-data folder for that information. 

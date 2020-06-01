@@ -1,3 +1,5 @@
+# Data Journal
+
 Unfortunately, most of the data cleanup for this was manual, making it hard to repeat. 
 
 1. We parsed the PDF, included in this repository, using Tabula. For the most part, the work in Tabula was spent lining up separate sections to ensure as clean of parsing as possible. 
