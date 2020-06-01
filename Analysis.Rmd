@@ -1,0 +1,112 @@
+```{r}
+library(tidyverse)
+library(sf)
+library(lubridate)
+```
+
+```{r}
+traffic <- read_csv("data/coronatrafficdata.csv",
+                    col_types = cols(
+    STA = col_character()
+  )) 
+```
+
+```{r}
+stations <- read_sf("data/Annual_Average_Daily_Traffic_Counts/INTMP_AADT_GIS_Points_DOT.shp")
+```
+
+```{r}
+counties <- read_sf("data/cb_2018_us_county_5m/cb_2018_us_county_5m.shp")
+```
+
+```{r}
+nebraska <- counties %>% filter(STATEFP == "31")
+```
+
+```{r}
+stations %>% filter(ADT_YEAR == 2019) %>% filter(ADT_CNT_TY == "A") -> locations
+```
+
+```{r}
+updatedlocations <- locations %>% left_join(traffic, by="FID")
+```
+
+```{r}
+ggplot() + geom_sf(data=nebraska) + geom_sf(data=updatedlocations, color="red")
+```
+
+```{r}
+changelocations <- updatedlocations %>% mutate(monthchange = round(((CMar20-CFeb20)/CFeb20)*100, digits=1)) %>% arrange(monthchange) %>% filter(monthchange < 0)
+```
+
+```{r}
+highways <- read_sf("data/Highways/Highways.shp") %>% filter(HwyType == "I" | HwyType == "US")
+```
+
+
+
+```{r}
+ggplot() + geom_sf(data=nebraska, fill="white") + geom_sf(data=highways, color="grey") + geom_sf(data=changelocations, aes(color=monthchange)) + scale_color_viridis_c(option="plasma", name="Change\nfrom Feb.\nto March") + theme_void() + labs(title="Statewide, traffic dropped sharply after COVID-19 restrictions", subtitle="From urban interstates to rural county roads, automated counters from the state show drops in cars driving by.", caption="Source: Nebraska Department of Transportation | Map by the Nebraska News Service") + 
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size=10)
+    ) + ggsave("~/Box/DataJournalismCenter/CovidTraffic/map.png")
+```
+
+```{r}
+st_write(changelocations, "data/trafficchanges2.kml", driver = "kml")
+```
+
+
+
+```{r}
+fortable <- as.data.frame(changelocations %>% select(COUNTY, ROUTE, LOCATION, CFeb20, CMar20, monthchange)) %>% 
+  select(-geometry)
+```
+
+```{r}
+library(kableExtra)
+```
+
+```{r}
+fortable %>% 
+  kable() %>% 
+  kable_styling(bootstrap_options = c("striped", "condensed"))
+```
+
+```{r}
+write_csv(fortable, "data/prettytraffic.csv")
+```
+
+
+
+```{r}
+fortable %>% rename(February = CFeb20, March=CMar20) %>% mutate(Label = paste(ROUTE, LOCATION, sep=" ")) %>% select(Label, February, March) -> trafficgraph
+```
+
+```{r}
+trafficgraph %>% mutate(Label = gsub("I80", "I-80", Label)) %>% mutate(Label = gsub(" CITY ROUTE", "", Label)) %>% mutate(Label = gsub("\\(", "", Label)) %>% mutate(Label = gsub("\\)", "", Label)) %>% mutate(Label = gsub("I180", "I-180", Label)) %>% mutate(Label = gsub("I680", "I-680", Label)) %>% mutate(Label = gsub("I129", "I-129", Label)) %>% mutate(Label = gsub(" CITY STREETS", "", Label)) %>% mutate(Label = str_to_title(Label, locale = "en")) %>% mutate(Label = gsub("Us6", "US 6", Label)) %>% mutate(Label = gsub("Us34", "US 34", Label)) %>% mutate(Label = gsub("Us75", "US 75", Label)) %>% mutate(Label = gsub("Us77", "US 77", Label)) %>% mutate(Label = gsub("Us20", "US 20", Label)) %>% mutate(Label = gsub("Us275", "US 275", Label)) %>% mutate(Label = gsub("Us281", "US 281", Label)) %>% mutate(Label = gsub("Us30", "US 30", Label)) %>% mutate(Label = gsub("Us81", "US 81", Label)) %>% mutate(Label = gsub("Us83", "US 83", Label)) %>% mutate(Label = gsub("S.e.", "SE", Label)) %>% mutate(Label = gsub(" City Rt", "", Label)) %>% mutate(Label = gsub(" City Street", "", Label)) %>% mutate(Label = gsub("Us26", "US 26", Label)) %>% mutate(Label = gsub("Of", "of", Label)) %>% mutate(Label = gsub("At", "at", Label)) %>% mutate(Label = gsub("Northeast", "NE", Label)) %>% mutate(Label = gsub("North", "N", Label)) %>% mutate(Label = gsub("East", "E", Label)) %>% mutate(Label = gsub("West", "W", Label)) %>% mutate(Label = gsub("South", "S", Label)) -> trafficgraphcleanlabels
+```
+
+
+```{r}
+library(scales)
+
+```
+
+
+```{r fig.height=15, fig.width=7}
+ggplot(trafficgraphcleanlabels) +
+  geom_segment(aes(x="Feb.", xend="March", y=February, yend=March), color="grey") +
+  geom_point(aes(x="Feb.", y=February), color="red", position = position_nudge(x = 0.02)) + 
+  geom_point(aes(x="March", y=March), color="blue", position = position_nudge(x = -0.02)) + 
+  geom_text(aes(x = "Feb.", y=February, label = Label), size = 3.5, hjust = 1) +
+  geom_text(aes(x = "March", y=March, label = Label), size = 3.5, hjust = 0) +
+  scale_y_log10(labels=comma) + 
+  labs(title="Across Nebraska, traffic dropped", subtitle="COVID-19 restrictions had an impact on roads", caption="Data: Nebraska Department of Transportation | Graphic by the Nebraska News Service", x="", y="Average traffic per day") + theme_minimal() + 
+  theme(
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size=10)
+    ) + ggsave("~/Box/DataJournalismCenter/chart.pdf", height=14, width=7)
+```
+
