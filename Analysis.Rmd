@@ -1,8 +1,14 @@
+To measure the impact of the coronavirus on Nebraska, we looked for automated data collectors. One such automated data collector is the automated traffic counting stations that the data Department of Transportation uses. This is the analysis of that data. 
+
+See the DataPrep notebook in the raw-data folder for details about how we processed the data. 
+
 ```{r}
 library(tidyverse)
 library(sf)
 library(lubridate)
 ```
+
+One issue with the data is automated imports interpret the STA column as a number, when it is a character field. 
 
 ```{r}
 traffic <- read_csv("data/coronatrafficdata.csv",
@@ -11,39 +17,57 @@ traffic <- read_csv("data/coronatrafficdata.csv",
   )) 
 ```
 
+For later, we will need locations of the counting stations. This file comes from the [Nebraska Map](http://www.nebraskamap.gov/). 
+
 ```{r}
 stations <- read_sf("data/Annual_Average_Daily_Traffic_Counts/INTMP_AADT_GIS_Points_DOT.shp")
 ```
+
+For context in the map, we'll also need the county boundary files. [This comes from the Census Bureau](https://www.census.gov/geographies/mapping-files/time-series/geo/carto-boundary-file.html). 
 
 ```{r}
 counties <- read_sf("data/cb_2018_us_county_5m/cb_2018_us_county_5m.shp")
 ```
 
+Using Nebraska's FIPS code, we can get the 93 counties of the state. 
+
 ```{r}
 nebraska <- counties %>% filter(STATEFP == "31")
 ```
+
+With the automated locations, we need 2019 data -- the most recent in that dataset -- and the ADT_CNT_TY or Automated Daily Traffic Count Type of "A" or automated.
 
 ```{r}
 stations %>% filter(ADT_YEAR == 2019) %>% filter(ADT_CNT_TY == "A") -> locations
 ```
 
+The station IDs were added by hand to the traffic data so that we could join the 2020 updated data from the PDF to the GIS data. 
+
 ```{r}
 updatedlocations <- locations %>% left_join(traffic, by="FID")
 ```
+
+Now, with the updated data joined to the geographic data, we can map them. 
 
 ```{r}
 ggplot() + geom_sf(data=nebraska) + geom_sf(data=updatedlocations, color="red")
 ```
 
+Let's us know it's working, but doesn't tell us anything.
+
+The next block of code now begins the analysis. We're first going to mutate a new field called monthchange that calculates the percent change from February to March. We're going to round it to one significant digit and multiply it by 100 to make it a percentage instead of a decimal. We'll arrange it by that change and then filter out spots where traffic grew. There are a small handful, and they are rural places with small traffic volumes. 
+
 ```{r}
 changelocations <- updatedlocations %>% mutate(monthchange = round(((CMar20-CFeb20)/CFeb20)*100, digits=1)) %>% arrange(monthchange) %>% filter(monthchange < 0)
 ```
+
+For context, because this is a story about traffic, I decided to bring in a map of highways. To cut down the busy-ness of it, I filtered for Interstates and US highways. 
 
 ```{r}
 highways <- read_sf("data/Highways/Highways.shp") %>% filter(HwyType == "I" | HwyType == "US")
 ```
 
-
+Now, with change and highways in our environment, we can map this for publication. 
 
 ```{r}
 ggplot() + geom_sf(data=nebraska, fill="white") + geom_sf(data=highways, color="grey") + geom_sf(data=changelocations, aes(color=monthchange)) + scale_color_viridis_c(option="plasma", name="Change\nfrom Feb.\nto March") + theme_void() + labs(title="Statewide, traffic dropped sharply after COVID-19 restrictions", subtitle="From urban interstates to rural county roads, automated counters from the state show drops in cars driving by.", caption="Source: Nebraska Department of Transportation | Map by the Nebraska News Service") + 
@@ -53,11 +77,13 @@ ggplot() + geom_sf(data=nebraska, fill="white") + geom_sf(data=highways, color="
     ) + ggsave("~/Box/DataJournalismCenter/CovidTraffic/map.png")
 ```
 
-```{r}
+For reporting purposes, I also created a KML version of the data to put into Google My Maps, so reporters could zoom in using Google Maps to find nearby businesses. 
+
+```{r eval=FALSE}
 st_write(changelocations, "data/trafficchanges2.kml", driver = "kml")
 ```
 
-
+For display, I attempted a Kable formatted table. 
 
 ```{r}
 fortable <- as.data.frame(changelocations %>% select(COUNTY, ROUTE, LOCATION, CFeb20, CMar20, monthchange)) %>% 
@@ -74,26 +100,30 @@ fortable %>%
   kable_styling(bootstrap_options = c("striped", "condensed"))
 ```
 
-```{r}
+I exported this dataset to a CSV so editors in local places could look at it in a spreadsheet or other viewer they had. 
+
+```{r eval=FALSE}
 write_csv(fortable, "data/prettytraffic.csv")
 ```
 
-
+Going to try to clean up this table a bit more for a more complex graphic. 
 
 ```{r}
 fortable %>% rename(February = CFeb20, March=CMar20) %>% mutate(Label = paste(ROUTE, LOCATION, sep=" ")) %>% select(Label, February, March) -> trafficgraph
 ```
 
+Having scanned the data, I noticed a series of spelling and appreviation issues with location labels. What follows is an iterative process of relabeling many of the locations for this graph. I did not want to make this permanent because it was just part of a graph. 
+
 ```{r}
 trafficgraph %>% mutate(Label = gsub("I80", "I-80", Label)) %>% mutate(Label = gsub(" CITY ROUTE", "", Label)) %>% mutate(Label = gsub("\\(", "", Label)) %>% mutate(Label = gsub("\\)", "", Label)) %>% mutate(Label = gsub("I180", "I-180", Label)) %>% mutate(Label = gsub("I680", "I-680", Label)) %>% mutate(Label = gsub("I129", "I-129", Label)) %>% mutate(Label = gsub(" CITY STREETS", "", Label)) %>% mutate(Label = str_to_title(Label, locale = "en")) %>% mutate(Label = gsub("Us6", "US 6", Label)) %>% mutate(Label = gsub("Us34", "US 34", Label)) %>% mutate(Label = gsub("Us75", "US 75", Label)) %>% mutate(Label = gsub("Us77", "US 77", Label)) %>% mutate(Label = gsub("Us20", "US 20", Label)) %>% mutate(Label = gsub("Us275", "US 275", Label)) %>% mutate(Label = gsub("Us281", "US 281", Label)) %>% mutate(Label = gsub("Us30", "US 30", Label)) %>% mutate(Label = gsub("Us81", "US 81", Label)) %>% mutate(Label = gsub("Us83", "US 83", Label)) %>% mutate(Label = gsub("S.e.", "SE", Label)) %>% mutate(Label = gsub(" City Rt", "", Label)) %>% mutate(Label = gsub(" City Street", "", Label)) %>% mutate(Label = gsub("Us26", "US 26", Label)) %>% mutate(Label = gsub("Of", "of", Label)) %>% mutate(Label = gsub("At", "at", Label)) %>% mutate(Label = gsub("Northeast", "NE", Label)) %>% mutate(Label = gsub("North", "N", Label)) %>% mutate(Label = gsub("East", "E", Label)) %>% mutate(Label = gsub("West", "W", Label)) %>% mutate(Label = gsub("South", "S", Label)) -> trafficgraphcleanlabels
 ```
-
 
 ```{r}
 library(scales)
 
 ```
 
+What follows is an attempt at a connect the dots chart that needed considerable cleanup in Illustrator. 
 
 ```{r fig.height=15, fig.width=7}
 ggplot(trafficgraphcleanlabels) +
@@ -107,6 +137,6 @@ ggplot(trafficgraphcleanlabels) +
   theme(
     plot.title = element_text(size = 16, face = "bold"),
     plot.subtitle = element_text(size=10)
-    ) + ggsave("~/Box/DataJournalismCenter/chart.pdf", height=14, width=7)
+    ) + ggsave("~/Box/DataJournalismCenter/rawchart.pdf", height=14, width=7)
 ```
 
