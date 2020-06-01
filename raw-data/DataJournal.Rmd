@@ -1,0 +1,5 @@
+Unfortunately, most of the data cleanup for this was manual, making it hard to repeat. 
+
+1. We parsed the PDF, included in this repository, using Tabula. For the most part, the work in Tabula was spent lining up separate sections to ensure as clean of parsing as possible. 
+2. Once out of Tabula, we imported the CSV into Excel, because what came next was largely copy and paste work to move it around. You can see what we started with by looking at tabula-autotrfrecorddata-1.csv in this folder. 
+3. After the data was lined up so it was one row, one station, the lack of any common identifier with the GIS location data became a problem. To create that identifier, we found the annual traffic number for the station in 2019 and found that number in the location data. We then copied the identifier from the location data into the traffic data. 
